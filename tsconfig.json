@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "es2020",
+    "module": "node16",
+    "moduleResolution": "node16",
+    "types": [],
+    "declaration": true,
+    "outDir": "./lib",
+    "isolatedModules": true,
+    "isolatedDeclarations": true,
+    "erasableSyntaxOnly": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "skipLibCheck": true
+  },
+  "include": [
+    "src"
+  ]
+}
