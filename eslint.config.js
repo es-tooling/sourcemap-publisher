@@ -12,7 +12,7 @@ export default defineConfig([
     },
     languageOptions: {
       globals: {
-        ...globals['shared-node-browser']
+        ...globals.node
       }
     },
     extends: [
