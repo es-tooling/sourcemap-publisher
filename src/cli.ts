@@ -201,7 +201,7 @@ const command = define({
       description: 'Enable provenance when publishing to npm',
       default: false
     },
-    dryRun: {
+    'dry-run': {
       type: 'boolean',
       description: 'Dry run, do not publish',
       default: false
@@ -212,6 +212,8 @@ const command = define({
 
     const cwd = process.cwd();
     const paths = ctx.positionals.length > 0 ? ctx.positionals : ['dist/'];
+    const dryRun = ctx.values['dry-run'];
+    const provenance = ctx.values.provenance;
 
     const tempDir = await getTempDir(cwd);
 
@@ -263,16 +265,16 @@ const command = define({
 
       const npmArgs: string[] = ['publish', '--tag=sourcemaps'];
 
-      if (ctx.options.dryRun) {
+      if (dryRun) {
         npmArgs.push('--dry-run');
       }
 
-      if (ctx.options.provenance) {
+      if (provenance) {
         npmArgs.push('--provenance');
       }
 
       const log = prompts.taskLog({
-        title: 'Running `npm publish`',
+        title: `Running npm ${npmArgs.join(' ')}`,
         limit: 10,
         retainLog: true
       });
@@ -288,15 +290,21 @@ const command = define({
           log.message(line);
         }
 
-        log.success('`npm publish`', {showLog: true});
+        if (publishProc.exitCode !== 0) {
+          throw new Error('npm publish failed');
+        }
+
+        log.success(`npm ${npmArgs.join(' ')}`, {showLog: true});
       } catch (err) {
         log.message(`${err}\n`, {raw: true});
-        log.error('Error running `npm publish`');
+        log.error(`Error running npm ${npmArgs.join(' ')}`);
         prompts.cancel('Failed to publish');
         return;
       }
 
-      prompts.outro('Published sourcemaps successfully!');
+      prompts.outro(
+        `Published sourcemaps successfully!${dryRun ? ' (Dry run)' : ''}`
+      );
     } finally {
       await rm(tempDir, {force: true, recursive: true});
     }
