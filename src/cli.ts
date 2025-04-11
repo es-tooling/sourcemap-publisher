@@ -25,17 +25,42 @@ async function getFiles(cwd: string, paths: string[]): Promise<string[]> {
 }
 
 interface PackageJson {
+  name: string;
+  version: string;
   files?: string[];
   [key: string]: unknown;
 }
 
-const readPackageJson = async (p: string): Promise<PackageJson | null> => {
+const readPackageJson = async (p: string): Promise<PackageJson> => {
+  let packageJson: string;
+
   try {
-    const packageJson = await readFile(p, 'utf8');
-    return JSON.parse(packageJson);
+    packageJson = await readFile(p, 'utf8');
   } catch {
-    return null;
+    throw new Error('Could not load `package.json` file');
   }
+
+  let obj: Record<string, unknown>;
+
+  try {
+    obj = JSON.parse(packageJson);
+  } catch {
+    throw new Error('Could not parse `package.json` file');
+  }
+
+  if (typeof obj !== 'object' || obj === null) {
+    throw new Error('Invalid `package.json` file');
+  }
+
+  if (typeof obj.name !== 'string') {
+    throw new Error('Invalid `package.json` file: missing name');
+  }
+
+  if (typeof obj.version !== 'string') {
+    throw new Error('Invalid `package.json` file: missing version');
+  }
+
+  return obj as PackageJson;
 };
 
 const filesToKeep = ['.npmrc', '.npmignore', 'package.json'];
@@ -64,9 +89,16 @@ const copyFilesToDir = async (
   }
 };
 
+const createExternalSourcemapUrl = (
+  p: string,
+  packageJson: PackageJson
+): string =>
+  `https://unpkg.com/${packageJson.name}@${packageJson.version}/${p}`;
+
 const updateSourceMapUrls = async (
   cwd: string,
-  files: string[]
+  files: string[],
+  packageJson: PackageJson
 ): Promise<void> => {
   // TODO (jg): maybe one day paralellise this with a concurrency limit
   for (const file of files) {
@@ -112,7 +144,10 @@ const updateSourceMapUrls = async (
 
     const sourcemapRelativePath = path.relative(cwd, sourcemapPath);
     // TODO (43081j): get pkg-name from somewhere
-    const sourcemapNewPath = `https://example.com/pkg-name/${sourcemapRelativePath}`;
+    const sourcemapNewPath = createExternalSourcemapUrl(
+      sourcemapRelativePath,
+      packageJson
+    );
 
     const newSourcemapLine =
       lastLine.slice(0, sourcemapMatch.indices[1][0]) +
@@ -135,10 +170,14 @@ const updatePackageJsonFiles = async (
   paths: string[]
 ): Promise<void> => {
   const files: string[] = ['./stub.js'];
+  const isPreRelease = packageJson.version.includes('-');
+  const versionSep = isPreRelease ? '.' : '-';
+  const version = `${packageJson.version}${versionSep}sourcemaps`;
   const newPackageJson: PackageJson = {
     ...packageJson,
     files,
-    main: './stub.js'
+    main: './stub.js',
+    version
   };
 
   for (const path of paths) {
@@ -180,11 +219,14 @@ const command = define({
       await copyFilesToDir([...filesToKeep, ...paths], cwd, tempDir);
 
       const packageJsonPath = path.join(tempDir, 'package.json');
-      const packageJson = await readPackageJson(packageJsonPath);
+      let packageJson: PackageJson | null;
 
-      if (packageJson === null) {
+      try {
+        packageJson = await readPackageJson(packageJsonPath);
+      } catch (err) {
+        prompts.log.error(`${err}`);
         prompts.cancel(
-          'No package.json found. Please run this command in the project directory.'
+          'Failed to read package.json. Please ensure you run this command in the project directory'
         );
         return;
       }
@@ -199,7 +241,7 @@ const command = define({
       }
 
       try {
-        await updateSourceMapUrls(tempDir, files);
+        await updateSourceMapUrls(tempDir, files, packageJson);
       } catch (err) {
         prompts.log.error(`${err}`);
         prompts.cancel('Failed to update sourcemap URLs');
@@ -246,7 +288,7 @@ const command = define({
           log.message(line);
         }
 
-        log.success('`npm publish` succeeded', {showLog: true});
+        log.success('`npm publish`', {showLog: true});
       } catch (err) {
         log.message(`${err}\n`, {raw: true});
         log.error('Error running `npm publish`');
