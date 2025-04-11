@@ -13,11 +13,7 @@ export async function getSourceFilesFromPaths(
       return !paths.some((p) => dirPath.startsWith(p));
     })
     .filter((file) => {
-      return (
-        paths.some((p) => file.startsWith(p)) &&
-        (file.endsWith('.js') ||
-          (!file.endsWith('.d.ts') && file.endsWith('.ts')))
-      );
+      return paths.some((p) => file.startsWith(p)) && file.endsWith('.js');
     })
     .crawl(cwd)
     .withPromise();

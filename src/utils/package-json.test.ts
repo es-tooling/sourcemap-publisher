@@ -6,13 +6,14 @@ import {
   preparePackageJson,
   readPackageJson
 } from './package-json.js';
+import {tmpdir} from 'node:os';
 
 suite('readPackageJson', () => {
   let tempDir: string;
   let pkgPath: string;
 
   beforeEach(async () => {
-    tempDir = await mkdtemp('smpub');
+    tempDir = await mkdtemp(path.join(tmpdir(), 'smpub'));
     pkgPath = path.join(tempDir, 'package.json');
   });
 

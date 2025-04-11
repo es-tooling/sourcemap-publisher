@@ -4,6 +4,7 @@ import {createExternalSourcemapUrl, updateSourceMapUrls} from './sourcemaps.js';
 import type {PackageJson} from './package-json.js';
 import {mkdtemp, readFile, rm, writeFile} from 'fs/promises';
 import path from 'path';
+import {tmpdir} from 'os';
 
 suite('createExternalSourcemapUrl', () => {
   test('should template url', () => {
@@ -38,7 +39,7 @@ suite('updateSourceMapUrls', () => {
       version: '1.0.0'
     };
 
-    tempDir = await mkdtemp('smpub');
+    tempDir = await mkdtemp(path.join(tmpdir(), 'smpub'));
 
     files = {
       'foo.js': `
