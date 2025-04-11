@@ -126,7 +126,7 @@ const updateSourceMapUrls = async (
   }
 };
 
-const packageJsonKeysToStrip = ['exports'];
+const packageJsonKeysToStrip = ['exports', 'bin'];
 
 const updatePackageJsonFiles = async (
   cwd: string,
