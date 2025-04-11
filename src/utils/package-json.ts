@@ -47,7 +47,7 @@ export async function preparePackageJson(
   packageJsonPath: string,
   packageJson: PackageJson,
   paths: string[]
-): Promise<void> {
+): Promise<PackageJson> {
   const files: string[] = ['./stub.js'];
   const isPreRelease = packageJson.version.includes('-');
   const versionSep = isPreRelease ? '.' : '-';
@@ -69,4 +69,6 @@ export async function preparePackageJson(
 
   await writeFile(packageJsonPath, JSON.stringify(newPackageJson, null, 2));
   await writeFile(path.join(cwd, './stub.js'), '');
+
+  return newPackageJson;
 }

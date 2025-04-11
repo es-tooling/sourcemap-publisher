@@ -70,18 +70,23 @@ export const publishCommand: Command<typeof options> = define({
       }
 
       try {
-        await updateSourceMapUrls(tempDir, files, packageJson);
+        packageJson = await preparePackageJson(
+          tempDir,
+          packageJsonPath,
+          packageJson,
+          paths
+        );
       } catch (err) {
         prompts.log.error(`${err}`);
-        prompts.cancel('Failed to update sourcemap URLs');
+        prompts.cancel('Failed to update package.json files');
         return;
       }
 
       try {
-        await preparePackageJson(tempDir, packageJsonPath, packageJson, paths);
+        await updateSourceMapUrls(tempDir, files, packageJson);
       } catch (err) {
         prompts.log.error(`${err}`);
-        prompts.cancel('Failed to update package.json files');
+        prompts.cancel('Failed to update sourcemap URLs');
         return;
       }
 

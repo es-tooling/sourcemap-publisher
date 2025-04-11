@@ -7,7 +7,7 @@ export function createExternalSourcemapUrl(
   p: string,
   packageJson: PackageJson
 ): string {
-  return `https://unpkg.com/${packageJson.name}@${packageJson.version}/${p}`;
+  return `https://unpkg.com/${packageJson.name}@${packageJson.version}/${p}.map`;
 }
 
 export async function updateSourceMapUrls(
