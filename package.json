@@ -4,6 +4,12 @@
   "description": "A tool to publish sourcemaps externally.",
   "main": "lib/main.js",
   "type": "module",
+  "files": [
+    "lib",
+    "!lib/**/*.map",
+    "!lib/**/*.test.js",
+    "cli.js"
+  ],
   "bin": {
     "sourcemap-publisher": "./cli.js"
   },
