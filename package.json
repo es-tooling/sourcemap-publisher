@@ -1,6 +1,6 @@
 {
   "name": "sourcemap-publisher",
-  "version": "0.0.1",
+  "version": "0.0.0-dev",
   "description": "A tool to publish sourcemaps externally.",
   "main": "lib/main.js",
   "type": "module",
