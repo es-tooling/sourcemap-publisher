@@ -1,5 +1,4 @@
 import {suite, test, expect, beforeEach, afterEach, vi} from 'vitest';
-import * as prompts from '@clack/prompts';
 import {createExternalSourcemapUrl, updateSourceMapUrls} from './sourcemaps.js';
 import type {PackageJson} from './package-json.js';
 import {mkdtemp, readFile, rm, writeFile} from 'fs/promises';
@@ -8,7 +7,7 @@ import {tmpdir} from 'os';
 
 suite('createExternalSourcemapUrl', () => {
   test('should template url', () => {
-    const file = 'foo/bar.js';
+    const file = 'foo/bar.js.map';
     const pkg: PackageJson = {
       name: 'test-package',
       version: '1.0.0-sourcemaps'
@@ -60,18 +59,11 @@ suite('updateSourceMapUrls', () => {
     vi.restoreAllMocks();
   });
 
-  test('warns on non-existent file', async () => {
-    const logSpy = vi.spyOn(prompts.log, 'warn').mockImplementation(() => {});
+  test('skips on non-existent file', async () => {
+    const paths = [path.join(tempDir, 'non-existent.js')];
+    const result = await updateSourceMapUrls(tempDir, paths, pkg);
 
-    await updateSourceMapUrls(
-      tempDir,
-      [path.join(tempDir, 'non-existent.js')],
-      pkg
-    );
-
-    expect(logSpy).toHaveBeenCalledWith(
-      `Could not load file ${path.join(tempDir, 'non-existent.js')}, skipping.`
-    );
+    expect(result).toEqual({skipped: paths});
   });
 
   test('ignores files with no source maps', async () => {
@@ -158,26 +150,19 @@ suite('updateSourceMapUrls', () => {
     expect(actualContents).toBe(contents);
   });
 
-  test('warns on non-existent sourcemap', async () => {
-    const logSpy = vi.spyOn(prompts.log, 'warn').mockImplementation(() => {});
-
+  test('skips on non-existent sourcemap', async () => {
     files['non-existent-map.js'] = `
 // This is a test file
 //# sourceMappingURL=non-existent-map.js.map`;
 
     await writeFiles(files, tempDir);
 
-    await updateSourceMapUrls(
-      tempDir,
-      ['non-existent-map.js', 'foo.js'].map((file) => path.join(tempDir, file)),
-      pkg
+    const paths = ['non-existent-map.js', 'foo.js'].map((file) =>
+      path.join(tempDir, file)
     );
+    const result = await updateSourceMapUrls(tempDir, paths, pkg);
 
-    const mapPath = path.join(tempDir, 'non-existent-map.js.map');
-
-    expect(logSpy).toHaveBeenCalledWith(
-      `Could not load sourcemap file ${mapPath}, skipping.`
-    );
+    expect(result).toEqual({skipped: [paths[0]]});
 
     const fooContents = await readFile(path.join(tempDir, 'foo.js'), 'utf8');
 
