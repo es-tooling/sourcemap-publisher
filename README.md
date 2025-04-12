@@ -12,8 +12,14 @@ npm i -D sourcemap-publisher
 ## Usage
 
 ```sh
-npx sourcemap-publisher lib/ --provenance
+npx sourcemap-publisher --provenance
 ```
+
+This will automatically detect which files you have in your `files` array
+(`package.json`), and will look up the sourcemaps for them.
+
+Once it has these, it will publish the package to npm under a `sourcemaps`
+tag and rewrite the sourcemap URLs to point to the external location.
 
 ## Options
 
