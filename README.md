@@ -12,7 +12,7 @@ npm i -D sourcemap-publisher
 ## Usage
 
 ```sh
-npx sourcemap-publisher publish lib/ --provenance
+npx sourcemap-publisher lib/ --provenance
 ```
 
 ## Options
