@@ -62,8 +62,15 @@ suite('readPackageJson', () => {
     }).rejects.toThrow('Invalid `package.json` file: missing version');
   });
 
+  test('throws when package.json file list is missing', async () => {
+    await writeFile(pkgPath, JSON.stringify({name: 'test', version: '1.0.0'}));
+    await expect(async () => {
+      await readPackageJson(pkgPath);
+    }).rejects.toThrow('Invalid `package.json` file: missing files list');
+  });
+
   test('returns valid package.json object', async () => {
-    const pkg = {name: 'test', version: '1.0.0'};
+    const pkg = {name: 'test', version: '1.0.0', files: []};
     await writeFile(pkgPath, JSON.stringify(pkg));
     const result = await readPackageJson(pkgPath);
     expect(result).toEqual(pkg);
@@ -87,11 +94,9 @@ suite('preparePackageJson', () => {
       bin: {
         foo: './lib/cli.js'
       },
-      scripts: {
-        build: 'build'
-      }
+      scripts: {}
     };
-    tempDir = await mkdtemp('smpub');
+    tempDir = await mkdtemp(path.join(tmpdir(), 'smpub'));
     pkgPath = path.join(tempDir, 'package.json');
     await writeFile(pkgPath, JSON.stringify(pkg));
   });
@@ -101,7 +106,7 @@ suite('preparePackageJson', () => {
   });
 
   test('prepares package correctly', async () => {
-    await preparePackageJson(tempDir, pkgPath, pkg, ['lib']);
+    await preparePackageJson(tempDir, pkgPath, pkg);
 
     const newPkg = await JSON.parse(await readFile(pkgPath, 'utf8'));
 
@@ -109,17 +114,15 @@ suite('preparePackageJson', () => {
       name: 'test-package',
       version: '1.0.0-sourcemaps',
       main: './stub.js',
-      files: ['./stub.js', 'lib/**/*.map'],
-      scripts: {
-        build: 'build'
-      }
+      files: ['./stub.js', './**/*.map'],
+      scripts: {}
     });
   });
 
   test('handles prerelease versions', async () => {
     pkg.version = '1.0.0-alpha';
 
-    await preparePackageJson(tempDir, pkgPath, pkg, ['lib']);
+    await preparePackageJson(tempDir, pkgPath, pkg);
 
     const newPkg = await JSON.parse(await readFile(pkgPath, 'utf8'));
 

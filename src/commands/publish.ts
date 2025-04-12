@@ -1,6 +1,7 @@
 import {x} from 'tinyexec';
 import {Command, define} from 'gunshi';
 import path from 'node:path';
+import {glob} from 'tinyglobby';
 import * as prompts from '@clack/prompts';
 import {rm} from 'node:fs/promises';
 import {
@@ -8,12 +9,12 @@ import {
   preparePackageJson,
   readPackageJson
 } from '../utils/package-json.js';
+import {copyFileToDir, getTempDir} from '../utils/fs.js';
 import {
-  copyRelativeFilesToDir,
-  getSourceFilesFromPaths,
-  getTempDir
-} from '../utils/fs.js';
-import {updateSourceMapUrls} from '../utils/sourcemaps.js';
+  ExtractedSourceMapSuccess,
+  extractSourceMaps,
+  updateSourceMapUrls
+} from '../utils/sourcemaps.js';
 
 const filesToKeep = ['.npmrc', '.npmignore', 'package.json'];
 
@@ -37,43 +38,76 @@ export const publishCommand: Command<typeof options> = define({
     prompts.intro('Publishing sourcemaps...');
 
     const cwd = process.cwd();
-    const paths = ctx.positionals.length > 0 ? ctx.positionals : ['dist/'];
     const dryRun = ctx.values['dry-run'];
     const provenance = ctx.values.provenance;
 
-    const tempDir = await getTempDir(cwd, '.sourcemap-publish');
+    const packageJsonPath = path.join(cwd, 'package.json');
+    let packageJson: PackageJson;
 
     try {
-      await copyRelativeFilesToDir([...filesToKeep, ...paths], cwd, tempDir);
+      packageJson = await readPackageJson(packageJsonPath);
+    } catch (err) {
+      prompts.log.error(`${err}`);
+      prompts.cancel(
+        'Failed to read package.json. Please ensure you run this command in the project directory'
+      );
+      return;
+    }
 
-      const packageJsonPath = path.join(tempDir, 'package.json');
-      let packageJson: PackageJson | null;
+    let paths: string[];
 
-      try {
-        packageJson = await readPackageJson(packageJsonPath);
-      } catch (err) {
-        prompts.log.error(`${err}`);
-        prompts.cancel(
-          'Failed to read package.json. Please ensure you run this command in the project directory'
-        );
+    try {
+      paths = await glob(packageJson.files, {
+        absolute: true,
+        cwd,
+        onlyFiles: true
+      });
+    } catch (err) {
+      prompts.cancel(
+        'Failed to load files from `files` array in package.json.'
+      );
+      prompts.log.message(String(err));
+      return;
+    }
+
+    let tempDir: string | undefined;
+
+    try {
+      tempDir = await getTempDir(cwd, '.sourcemap-publish');
+
+      const tempPackageJsonPath = path.join(tempDir, 'package.json');
+
+      const sourcePaths = paths.filter((p) => p.endsWith('.js'));
+      const sourceMaps = await extractSourceMaps(sourcePaths);
+
+      if (sourceMaps.length === 0) {
+        prompts.cancel('No sourcemap files were found to publish!');
         return;
       }
 
-      const resolvedSourcePaths = paths.map((p) => path.join(cwd, p));
+      const successfulSourceMaps: ExtractedSourceMapSuccess[] = [];
 
-      const files = await getSourceFilesFromPaths(cwd, resolvedSourcePaths);
+      for (const sourceMap of sourceMaps) {
+        if (sourceMap.success === false) {
+          prompts.log.warn(
+            `Skipping source file "${sourceMap.source}" (${sourceMap.reason})`
+          );
+          continue;
+        }
 
-      if (files.length === 0) {
-        prompts.cancel('No files were found to publish!');
-        return;
+        successfulSourceMaps.push(sourceMap);
+        await copyFileToDir(sourceMap.path, cwd, tempDir);
+      }
+
+      for (const file of filesToKeep) {
+        await copyFileToDir(path.join(cwd, file), cwd, tempDir);
       }
 
       try {
         packageJson = await preparePackageJson(
           tempDir,
-          packageJsonPath,
-          packageJson,
-          paths
+          tempPackageJsonPath,
+          packageJson
         );
       } catch (err) {
         prompts.log.error(`${err}`);
@@ -82,26 +116,19 @@ export const publishCommand: Command<typeof options> = define({
       }
 
       try {
+        const totalSuccessfulSourceMaps = successfulSourceMaps.length;
+        const totalFailedSourceMaps =
+          sourceMaps.length - totalSuccessfulSourceMaps;
+
         if (dryRun) {
           prompts.log.info(
-            `Updated ${files.length} sourcemap URLs, skipped 0 files (dry run)`
+            `Updated ${totalSuccessfulSourceMaps} sourcemap URLs, skipped ${totalFailedSourceMaps} files (dry run)`
           );
         } else {
-          const updateResult = await updateSourceMapUrls(
-            cwd,
-            files,
-            packageJson
-          );
-          const totalSkipped = updateResult.skipped.length;
-          const totalUpdated = files.length - totalSkipped;
+          await updateSourceMapUrls(cwd, successfulSourceMaps, packageJson);
           prompts.log.info(
-            `Updated ${totalUpdated} sourcemap URLs, skipped ${totalSkipped} files`
+            `Updated ${totalSuccessfulSourceMaps} sourcemap URLs, skipped ${totalFailedSourceMaps} files`
           );
-          for (const skippedFile of updateResult.skipped) {
-            prompts.log.warn(
-              `Skipped ${skippedFile} (could not load file or sourcemap)`
-            );
-          }
         }
       } catch (err) {
         prompts.log.error(`${err}`);
@@ -152,7 +179,9 @@ export const publishCommand: Command<typeof options> = define({
         `Published sourcemaps successfully!${dryRun ? ' (dry run)' : ''}`
       );
     } finally {
-      await rm(tempDir, {force: true, recursive: true});
+      if (tempDir) {
+        await rm(tempDir, {force: true, recursive: true});
+      }
     }
   }
 });

@@ -1,8 +1,0 @@
-// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
-
-exports[`getSourceFilesFromPaths > should find all js/ts files in the specified paths 1`] = `
-[
-  "<TEMPDIR>/lib/js-file.js",
-  "<TEMPDIR>/lib/nested/js-file.js",
-]
-`;
