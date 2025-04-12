@@ -59,9 +59,9 @@ export const publishCommand: Command<typeof options> = define({
         return;
       }
 
-      const resolvedPaths = paths.map((p) => path.join(tempDir, p));
+      const resolvedSourcePaths = paths.map((p) => path.join(cwd, p));
 
-      const files = await getSourceFilesFromPaths(tempDir, resolvedPaths);
+      const files = await getSourceFilesFromPaths(cwd, resolvedSourcePaths);
 
       if (files.length === 0) {
         prompts.cancel('No files were found to publish!');
@@ -82,7 +82,27 @@ export const publishCommand: Command<typeof options> = define({
       }
 
       try {
-        await updateSourceMapUrls(tempDir, files, packageJson);
+        if (dryRun) {
+          prompts.log.info(
+            `Updated ${files.length} sourcemap URLs, skipped 0 files (dry run)`
+          );
+        } else {
+          const updateResult = await updateSourceMapUrls(
+            cwd,
+            files,
+            packageJson
+          );
+          const totalSkipped = updateResult.skipped.length;
+          const totalUpdated = files.length - totalSkipped;
+          prompts.log.info(
+            `Updated ${totalUpdated} sourcemap URLs, skipped ${totalSkipped} files`
+          );
+          for (const skippedFile of updateResult.skipped) {
+            prompts.log.warn(
+              `Skipped ${skippedFile} (could not load file or sourcemap)`
+            );
+          }
+        }
       } catch (err) {
         prompts.log.error(`${err}`);
         prompts.cancel('Failed to update sourcemap URLs');
@@ -129,7 +149,7 @@ export const publishCommand: Command<typeof options> = define({
       }
 
       prompts.outro(
-        `Published sourcemaps successfully!${dryRun ? ' (Dry run)' : ''}`
+        `Published sourcemaps successfully!${dryRun ? ' (dry run)' : ''}`
       );
     } finally {
       await rm(tempDir, {force: true, recursive: true});

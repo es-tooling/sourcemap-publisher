@@ -1,20 +1,24 @@
 import {readFile, stat, writeFile} from 'node:fs/promises';
 import path from 'node:path';
 import {type PackageJson} from './package-json.js';
-import * as prompts from '@clack/prompts';
 
 export function createExternalSourcemapUrl(
   p: string,
   packageJson: PackageJson
 ): string {
-  return `https://unpkg.com/${packageJson.name}@${packageJson.version}/${p}.map`;
+  return `https://unpkg.com/${packageJson.name}@${packageJson.version}/${p}`;
+}
+
+export interface UpdateSourceMapUrlsResult {
+  skipped: string[];
 }
 
 export async function updateSourceMapUrls(
   cwd: string,
   files: string[],
   packageJson: PackageJson
-): Promise<void> {
+): Promise<UpdateSourceMapUrlsResult> {
+  const result: UpdateSourceMapUrlsResult = {skipped: []};
   // TODO (jg): maybe one day paralellise this with a concurrency limit
   for (const file of files) {
     let contents: string;
@@ -22,12 +26,14 @@ export async function updateSourceMapUrls(
     try {
       contents = await readFile(file, 'utf8');
     } catch {
-      // TODO (jg): should this function really know about prompts?
-      prompts.log.warn(`Could not load file ${file}, skipping.`);
+      result.skipped.push(file);
       continue;
     }
 
-    const lastLine = contents.slice(contents.lastIndexOf('\n') + 1);
+    const trimmedContents = contents.trim();
+    const lastLine = trimmedContents.slice(
+      trimmedContents.lastIndexOf('\n') + 1
+    );
     const sourcemapPattern = /^\/\/# sourceMappingURL=(.+)/d;
     const sourcemapMatch = lastLine.match(sourcemapPattern);
 
@@ -52,9 +58,7 @@ export async function updateSourceMapUrls(
     try {
       await stat(sourcemapPath);
     } catch {
-      prompts.log.warn(
-        `Could not load sourcemap file ${sourcemapPath}, skipping.`
-      );
+      result.skipped.push(file);
       continue;
     }
 
@@ -66,13 +70,15 @@ export async function updateSourceMapUrls(
     );
 
     const newSourcemapLine =
-      lastLine.slice(0, sourcemapMatch.indices[1][0]) +
+      sourcemapMatch[0].slice(0, sourcemapMatch.indices[1][0]) +
       sourcemapNewPath +
-      lastLine.slice(sourcemapMatch.indices[1][1]);
+      sourcemapMatch[0].slice(sourcemapMatch.indices[1][1]);
 
     await writeFile(
       file,
       contents.slice(0, contents.lastIndexOf('\n') + 1) + newSourcemapLine
     );
   }
+
+  return result;
 }
