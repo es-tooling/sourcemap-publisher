@@ -1,24 +1,5 @@
-import {fdir} from 'fdir';
 import path from 'node:path';
 import {mkdir, rm, stat, cp} from 'node:fs/promises';
-
-export async function getSourceFilesFromPaths(
-  cwd: string,
-  paths: string[]
-): Promise<string[]> {
-  const crawler = new fdir();
-  const files = await crawler
-    .withFullPaths()
-    .exclude((_dirName, dirPath) => {
-      return !paths.some((p) => dirPath.startsWith(p));
-    })
-    .filter((file) => {
-      return paths.some((p) => file.startsWith(p)) && file.endsWith('.js');
-    })
-    .crawl(cwd)
-    .withPromise();
-  return files;
-}
 
 export async function getTempDir(cwd: string, name: string): Promise<string> {
   const tempDir = path.join(cwd, name);

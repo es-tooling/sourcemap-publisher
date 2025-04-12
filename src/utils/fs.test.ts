@@ -1,10 +1,6 @@
 import {suite, beforeEach, afterEach, test, expect} from 'vitest';
 import {writeFile, rm, mkdtemp, mkdir, stat} from 'node:fs/promises';
-import {
-  copyRelativeFilesToDir,
-  getSourceFilesFromPaths,
-  getTempDir
-} from './fs.js';
+import {copyRelativeFilesToDir, getTempDir} from './fs.js';
 import path from 'node:path';
 import {tmpdir} from 'node:os';
 
@@ -22,29 +18,6 @@ const writeMockFs = async (tempDir: string) => {
     await writeFile(filePath, content);
   }
 };
-
-suite('getSourceFilesFromPaths', () => {
-  let tempDir: string;
-
-  beforeEach(async () => {
-    tempDir = await mkdtemp(path.join(tmpdir(), 'smpub'));
-    await writeMockFs(tempDir);
-  });
-
-  afterEach(async () => {
-    await rm(tempDir, {force: true, recursive: true});
-  });
-
-  test('should find all js/ts files in the specified paths', async () => {
-    const results = await getSourceFilesFromPaths(tempDir, [
-      path.join(tempDir, 'lib/')
-    ]);
-
-    expect(
-      results.map((p) => p.replace(tempDir, '<TEMPDIR>'))
-    ).toMatchSnapshot();
-  });
-});
 
 suite('getTempDir', () => {
   let tempDir: string;

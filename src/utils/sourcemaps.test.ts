@@ -10,7 +10,8 @@ suite('createExternalSourcemapUrl', () => {
     const file = 'foo/bar.js.map';
     const pkg: PackageJson = {
       name: 'test-package',
-      version: '1.0.0-sourcemaps'
+      version: '1.0.0-sourcemaps',
+      files: []
     };
     expect(createExternalSourcemapUrl(file, pkg)).toBe(
       'https://unpkg.com/test-package@1.0.0-sourcemaps/foo/bar.js.map'
@@ -35,7 +36,8 @@ suite('updateSourceMapUrls', () => {
   beforeEach(async () => {
     pkg = {
       name: 'test-package',
-      version: '1.0.0'
+      version: '1.0.0',
+      files: []
     };
 
     tempDir = await mkdtemp(path.join(tmpdir(), 'smpub'));

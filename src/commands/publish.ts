@@ -1,6 +1,7 @@
 import {x} from 'tinyexec';
 import {Command, define} from 'gunshi';
 import path from 'node:path';
+import {glob} from 'tinyglobby';
 import * as prompts from '@clack/prompts';
 import {rm} from 'node:fs/promises';
 import {
@@ -8,11 +9,7 @@ import {
   preparePackageJson,
   readPackageJson
 } from '../utils/package-json.js';
-import {
-  copyRelativeFilesToDir,
-  getSourceFilesFromPaths,
-  getTempDir
-} from '../utils/fs.js';
+import {copyRelativeFilesToDir, getTempDir} from '../utils/fs.js';
 import {updateSourceMapUrls} from '../utils/sourcemaps.js';
 
 const filesToKeep = ['.npmrc', '.npmignore', 'package.json'];
@@ -37,41 +34,58 @@ export const publishCommand: Command<typeof options> = define({
     prompts.intro('Publishing sourcemaps...');
 
     const cwd = process.cwd();
-    const paths = ctx.positionals.length > 0 ? ctx.positionals : ['dist/'];
     const dryRun = ctx.values['dry-run'];
     const provenance = ctx.values.provenance;
 
-    const tempDir = await getTempDir(cwd, '.sourcemap-publish');
+    const packageJsonPath = path.join(cwd, 'package.json');
+    let packageJson: PackageJson;
 
     try {
+      packageJson = await readPackageJson(packageJsonPath);
+    } catch (err) {
+      prompts.log.error(`${err}`);
+      prompts.cancel(
+        'Failed to read package.json. Please ensure you run this command in the project directory'
+      );
+      return;
+    }
+
+    let paths: string[];
+
+    try {
+      paths = await glob(packageJson.files, {
+        absolute: true,
+        cwd,
+        onlyFiles: true
+      });
+    } catch (err) {
+      prompts.cancel(
+        'Failed to load files from `files` array in package.json.'
+      );
+      prompts.log.message(String(err));
+      return;
+    }
+
+    let tempDir: string | undefined;
+
+    try {
+      tempDir = await getTempDir(cwd, '.sourcemap-publish');
+
+      const tempPackageJsonPath = path.join(tempDir, 'package.json');
+
       await copyRelativeFilesToDir([...filesToKeep, ...paths], cwd, tempDir);
 
-      const packageJsonPath = path.join(tempDir, 'package.json');
-      let packageJson: PackageJson | null;
-
-      try {
-        packageJson = await readPackageJson(packageJsonPath);
-      } catch (err) {
-        prompts.log.error(`${err}`);
-        prompts.cancel(
-          'Failed to read package.json. Please ensure you run this command in the project directory'
-        );
-        return;
-      }
-
-      const resolvedSourcePaths = paths.map((p) => path.join(cwd, p));
-
-      const files = await getSourceFilesFromPaths(cwd, resolvedSourcePaths);
+      const files = paths.filter((p) => p.endsWith('.js'));
 
       if (files.length === 0) {
-        prompts.cancel('No files were found to publish!');
+        prompts.cancel('No source files were found to publish!');
         return;
       }
 
       try {
         packageJson = await preparePackageJson(
           tempDir,
-          packageJsonPath,
+          tempPackageJsonPath,
           packageJson,
           paths
         );
@@ -152,7 +166,9 @@ export const publishCommand: Command<typeof options> = define({
         `Published sourcemaps successfully!${dryRun ? ' (dry run)' : ''}`
       );
     } finally {
-      await rm(tempDir, {force: true, recursive: true});
+      if (tempDir) {
+        await rm(tempDir, {force: true, recursive: true});
+      }
     }
   }
 });

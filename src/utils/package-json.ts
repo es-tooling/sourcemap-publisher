@@ -4,7 +4,7 @@ import path from 'node:path';
 export interface PackageJson {
   name: string;
   version: string;
-  files?: string[];
+  files: string[];
   [key: string]: unknown;
 }
 
@@ -25,7 +25,7 @@ export const readPackageJson = async (p: string): Promise<PackageJson> => {
     throw new Error('Could not parse `package.json` file');
   }
 
-  if (typeof obj !== 'object' || obj === null) {
+  if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) {
     throw new Error('Invalid `package.json` file');
   }
 
@@ -35,6 +35,10 @@ export const readPackageJson = async (p: string): Promise<PackageJson> => {
 
   if (typeof obj.version !== 'string') {
     throw new Error('Invalid `package.json` file: missing version');
+  }
+
+  if (!Array.isArray(obj.files)) {
+    throw new Error('Invalid `package.json` file: missing files list');
   }
 
   return obj as PackageJson;
@@ -56,7 +60,8 @@ export async function preparePackageJson(
     ...packageJson,
     files,
     main: './stub.js',
-    version
+    version,
+    scripts: {}
   };
 
   for (const path of paths) {
