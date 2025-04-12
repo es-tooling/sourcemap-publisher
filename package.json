@@ -20,7 +20,8 @@
     "lint:format": "prettier --check src",
     "format": "prettier --write src",
     "build": "npm run clean && tsc",
-    "test": "vitest",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "test:coverage": "vitest --coverage"
   },
   "repository": {
