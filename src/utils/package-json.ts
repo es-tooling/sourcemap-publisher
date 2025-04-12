@@ -49,10 +49,9 @@ const packageJsonKeysToStrip = ['exports', 'bin'];
 export async function preparePackageJson(
   cwd: string,
   packageJsonPath: string,
-  packageJson: PackageJson,
-  paths: string[]
+  packageJson: PackageJson
 ): Promise<PackageJson> {
-  const files: string[] = ['./stub.js'];
+  const files: string[] = ['./stub.js', './**/*.map'];
   const isPreRelease = packageJson.version.includes('-');
   const versionSep = isPreRelease ? '.' : '-';
   const version = `${packageJson.version}${versionSep}sourcemaps`;
@@ -63,10 +62,6 @@ export async function preparePackageJson(
     version,
     scripts: {}
   };
-
-  for (const path of paths) {
-    files.push(`${path}/**/*.map`);
-  }
 
   for (const key of packageJsonKeysToStrip) {
     newPackageJson[key] = undefined;

@@ -9,8 +9,12 @@ import {
   preparePackageJson,
   readPackageJson
 } from '../utils/package-json.js';
-import {copyRelativeFilesToDir, getTempDir} from '../utils/fs.js';
-import {updateSourceMapUrls} from '../utils/sourcemaps.js';
+import {copyFileToDir, getTempDir} from '../utils/fs.js';
+import {
+  ExtractedSourceMapSuccess,
+  extractSourceMaps,
+  updateSourceMapUrls
+} from '../utils/sourcemaps.js';
 
 const filesToKeep = ['.npmrc', '.npmignore', 'package.json'];
 
@@ -73,21 +77,37 @@ export const publishCommand: Command<typeof options> = define({
 
       const tempPackageJsonPath = path.join(tempDir, 'package.json');
 
-      await copyRelativeFilesToDir([...filesToKeep, ...paths], cwd, tempDir);
+      const sourcePaths = paths.filter((p) => p.endsWith('.js'));
+      const sourceMaps = await extractSourceMaps(sourcePaths);
 
-      const files = paths.filter((p) => p.endsWith('.js'));
-
-      if (files.length === 0) {
-        prompts.cancel('No source files were found to publish!');
+      if (sourceMaps.length === 0) {
+        prompts.cancel('No sourcemap files were found to publish!');
         return;
+      }
+
+      const successfulSourceMaps: ExtractedSourceMapSuccess[] = [];
+
+      for (const sourceMap of sourceMaps) {
+        if (sourceMap.success === false) {
+          prompts.log.warn(
+            `Skipping source file "${sourceMap.source}" (${sourceMap.reason})`
+          );
+          continue;
+        }
+
+        successfulSourceMaps.push(sourceMap);
+        await copyFileToDir(sourceMap.path, cwd, tempDir);
+      }
+
+      for (const file of filesToKeep) {
+        await copyFileToDir(path.join(cwd, file), cwd, tempDir);
       }
 
       try {
         packageJson = await preparePackageJson(
           tempDir,
           tempPackageJsonPath,
-          packageJson,
-          paths
+          packageJson
         );
       } catch (err) {
         prompts.log.error(`${err}`);
@@ -96,26 +116,19 @@ export const publishCommand: Command<typeof options> = define({
       }
 
       try {
+        const totalSuccessfulSourceMaps = successfulSourceMaps.length;
+        const totalFailedSourceMaps =
+          sourceMaps.length - totalSuccessfulSourceMaps;
+
         if (dryRun) {
           prompts.log.info(
-            `Updated ${files.length} sourcemap URLs, skipped 0 files (dry run)`
+            `Updated ${totalSuccessfulSourceMaps} sourcemap URLs, skipped ${totalFailedSourceMaps} files (dry run)`
           );
         } else {
-          const updateResult = await updateSourceMapUrls(
-            cwd,
-            files,
-            packageJson
-          );
-          const totalSkipped = updateResult.skipped.length;
-          const totalUpdated = files.length - totalSkipped;
+          await updateSourceMapUrls(cwd, successfulSourceMaps, packageJson);
           prompts.log.info(
-            `Updated ${totalUpdated} sourcemap URLs, skipped ${totalSkipped} files`
+            `Updated ${totalSuccessfulSourceMaps} sourcemap URLs, skipped ${totalFailedSourceMaps} files`
           );
-          for (const skippedFile of updateResult.skipped) {
-            prompts.log.warn(
-              `Skipped ${skippedFile} (could not load file or sourcemap)`
-            );
-          }
         }
       } catch (err) {
         prompts.log.error(`${err}`);

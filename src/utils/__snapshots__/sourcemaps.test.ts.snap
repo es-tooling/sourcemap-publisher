@@ -1,5 +1,29 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`extractSourceMap > retrieves sourcemap URL 1`] = `
+{
+  "path": "TEMP_DIR/foo.js.map",
+  "range": [
+    21,
+    31,
+  ],
+  "source": "TEMP_DIR/foo.js",
+  "success": true,
+}
+`;
+
+exports[`extractSourceMaps > extracts sourcemaps from files 1`] = `
+{
+  "path": "TEMP_DIR/foo.js.map",
+  "range": [
+    21,
+    31,
+  ],
+  "source": "TEMP_DIR/foo.js",
+  "success": true,
+}
+`;
+
 exports[`updateSourceMapUrls > replaces urls with CDN urls 1`] = `
 "
 // This is a test file
@@ -9,15 +33,5 @@ exports[`updateSourceMapUrls > replaces urls with CDN urls 1`] = `
 exports[`updateSourceMapUrls > replaces urls with CDN urls 2`] = `
 "
 // This is a test file
-//# sourceMappingURL=https://unpkg.com/test-package@1.0.0/foo.js.map"
-`;
-
-exports[`updateSourceMapUrls > replaces urls with CDN urls 3`] = `"// x"`;
-
-exports[`updateSourceMapUrls > replaces urls with CDN urls 4`] = `"// x"`;
-
-exports[`updateSourceMapUrls > skips on non-existent sourcemap 1`] = `
-"
-// This is a test file
-//# sourceMappingURL=https://unpkg.com/test-package@1.0.0/foo.js.map"
+//# sourceMappingURL=https://unpkg.com/test-package@1.0.0/bar.js.map"
 `;

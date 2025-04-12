@@ -9,76 +9,115 @@ export function createExternalSourcemapUrl(
   return `https://unpkg.com/${packageJson.name}@${packageJson.version}/${p}`;
 }
 
-export interface UpdateSourceMapUrlsResult {
-  skipped: string[];
-}
-
 export async function updateSourceMapUrls(
   cwd: string,
-  files: string[],
+  sourceMaps: ExtractedSourceMapSuccess[],
   packageJson: PackageJson
-): Promise<UpdateSourceMapUrlsResult> {
-  const result: UpdateSourceMapUrlsResult = {skipped: []};
+): Promise<void> {
   // TODO (jg): maybe one day paralellise this with a concurrency limit
-  for (const file of files) {
+  for (const sourceMap of sourceMaps) {
+    // TODO (43081j); we will already have read this file as part of
+    // parsing source maps. ideally we shouldn't read it again here, but
+    // storing all of the sources in memory is not a good idea either
     let contents: string;
 
     try {
-      contents = await readFile(file, 'utf8');
+      contents = await readFile(sourceMap.source, 'utf8');
     } catch {
-      result.skipped.push(file);
       continue;
     }
 
-    const trimmedContents = contents.trim();
-    const lastLine = trimmedContents.slice(
-      trimmedContents.lastIndexOf('\n') + 1
-    );
-    const sourcemapPattern = /^\/\/# sourceMappingURL=(.+)/d;
-    const sourcemapMatch = lastLine.match(sourcemapPattern);
-
-    if (!sourcemapMatch || !sourcemapMatch.indices) {
-      continue;
-    }
-
-    const sourcemapURL = sourcemapMatch[1];
-
-    // Don't support absolute URLs, or URLs with a protocol
-    if (sourcemapURL.startsWith('/') || /^\w+:\/\//.test(sourcemapURL)) {
-      continue;
-    }
-
-    // Ignore inline maps
-    if (sourcemapURL.startsWith('data:')) {
-      continue;
-    }
-
-    const sourcemapPath = path.join(path.dirname(file), sourcemapURL);
-
-    try {
-      await stat(sourcemapPath);
-    } catch {
-      result.skipped.push(file);
-      continue;
-    }
-
-    const sourcemapRelativePath = path.relative(cwd, sourcemapPath);
-    // TODO (43081j): get pkg-name from somewhere
+    const sourcemapRelativePath = path.relative(cwd, sourceMap.path);
     const sourcemapNewPath = createExternalSourcemapUrl(
       sourcemapRelativePath,
       packageJson
     );
 
-    const newSourcemapLine =
-      sourcemapMatch[0].slice(0, sourcemapMatch.indices[1][0]) +
-      sourcemapNewPath +
-      sourcemapMatch[0].slice(sourcemapMatch.indices[1][1]);
-
     await writeFile(
-      file,
-      contents.slice(0, contents.lastIndexOf('\n') + 1) + newSourcemapLine
+      sourceMap.source,
+      contents.slice(0, sourceMap.range[0]) +
+        sourcemapNewPath +
+        contents.slice(sourceMap.range[1])
     );
   }
+}
 
-  return result;
+export interface ExtractedSourceMapSuccess {
+  success: true;
+  range: [number, number];
+  path: string;
+  source: string;
+}
+
+export interface ExtractedSourceMapError {
+  success: false;
+  source: string;
+  reason: string;
+}
+
+export type ExtractedSourceMap =
+  | ExtractedSourceMapSuccess
+  | ExtractedSourceMapError;
+
+export async function extractSourceMap(
+  source: string
+): Promise<ExtractedSourceMap> {
+  let contents: string;
+
+  try {
+    contents = await readFile(source, 'utf8');
+  } catch {
+    return {source, success: false, reason: 'could not load source file'};
+  }
+
+  const trimmedContents = contents.trim();
+  const lastLine = trimmedContents.slice(trimmedContents.lastIndexOf('\n') + 1);
+  const sourcemapPattern = /^\/\/# sourceMappingURL=(.+)/d;
+  const sourcemapMatch = lastLine.match(sourcemapPattern);
+
+  if (!sourcemapMatch || !sourcemapMatch.indices) {
+    return {source, success: false, reason: 'no sourcemap found'};
+  }
+
+  const sourcemapURL = sourcemapMatch[1];
+
+  // Don't support absolute URLs, or URLs with a protocol
+  if (sourcemapURL.startsWith('/') || /^\w+:\/\//.test(sourcemapURL)) {
+    return {
+      source,
+      success: false,
+      reason: 'absolute and external URLs not supported'
+    };
+  }
+
+  // Ignore inline maps
+  if (sourcemapURL.startsWith('data:')) {
+    return {source, success: false, reason: 'data URLs not supported'};
+  }
+
+  const sourcemapPath = path.join(path.dirname(source), sourcemapURL);
+
+  try {
+    await stat(sourcemapPath);
+  } catch {
+    return {source, success: false, reason: 'sourcemap not found'};
+  }
+
+  return {
+    success: true,
+    range: sourcemapMatch.indices[1],
+    path: sourcemapPath,
+    source
+  };
+}
+
+export async function extractSourceMaps(
+  files: string[]
+): Promise<ExtractedSourceMap[]> {
+  const results: ExtractedSourceMap[] = [];
+  for (const file of files) {
+    const extracted = await extractSourceMap(file);
+    results.push(extracted);
+  }
+  return results;
 }

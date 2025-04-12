@@ -1,14 +1,12 @@
 import {suite, beforeEach, afterEach, test, expect} from 'vitest';
 import {writeFile, rm, mkdtemp, mkdir, stat} from 'node:fs/promises';
-import {copyRelativeFilesToDir, getTempDir} from './fs.js';
+import {copyFileToDir, getTempDir} from './fs.js';
 import path from 'node:path';
 import {tmpdir} from 'node:os';
 
 const mockFs: Record<string, string> = {
-  'lib/js-file.js': '// foo',
-  'lib/ts-file.ts': '// foo',
-  'lib/dts-file.d.ts': '// foo',
-  'lib/nested/js-file.js': '// foo'
+  'lib/file.js': '// foo',
+  'lib/file.d.ts': '// foo'
 };
 
 const writeMockFs = async (tempDir: string) => {
@@ -38,7 +36,7 @@ suite('getTempDir', () => {
   });
 });
 
-suite('copyRelativeFilesToDir', () => {
+suite('copyFileToDir', () => {
   let tempDir: string;
   let targetDir: string;
 
@@ -53,27 +51,21 @@ suite('copyRelativeFilesToDir', () => {
     await rm(targetDir, {force: true, recursive: true});
   });
 
-  test('copies files to target directory', async () => {
-    const files = ['lib/js-file.js', 'lib/ts-file.ts'];
-    await copyRelativeFilesToDir(files, tempDir, targetDir);
+  test('copies file to target directory', async () => {
+    const file = path.join(tempDir, 'lib/file.js');
+    await copyFileToDir(file, tempDir, targetDir);
 
     await expect(
-      stat(path.join(targetDir, 'lib/js-file.js'))
-    ).resolves.not.toThrow();
-    await expect(
-      stat(path.join(targetDir, 'lib/ts-file.ts'))
+      stat(path.join(targetDir, 'lib/file.js'))
     ).resolves.not.toThrow();
   });
 
   test('ignores non-existent files', async () => {
-    const files = ['lib/js-file.js', 'lib/non-existent-file.js'];
-    await copyRelativeFilesToDir(files, tempDir, targetDir);
+    const file = path.join(tempDir, 'lib/non-existent.js');
+    await copyFileToDir(file, tempDir, targetDir);
 
     await expect(
-      stat(path.join(targetDir, 'lib/js-file.js'))
-    ).resolves.not.toThrow();
-    await expect(
-      stat(path.join(targetDir, 'lib/non-existent-file.js'))
+      stat(path.join(targetDir, 'lib/non-existent.js'))
     ).rejects.toThrow();
   });
 });

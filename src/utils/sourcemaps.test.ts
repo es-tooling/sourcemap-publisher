@@ -1,5 +1,10 @@
 import {suite, test, expect, beforeEach, afterEach, vi} from 'vitest';
-import {createExternalSourcemapUrl, updateSourceMapUrls} from './sourcemaps.js';
+import {
+  createExternalSourcemapUrl,
+  ExtractedSourceMapSuccess,
+  extractSourceMap,
+  updateSourceMapUrls
+} from './sourcemaps.js';
 import type {PackageJson} from './package-json.js';
 import {mkdtemp, readFile, rm, writeFile} from 'fs/promises';
 import path from 'path';
@@ -48,7 +53,7 @@ suite('updateSourceMapUrls', () => {
 //# sourceMappingURL=foo.js.map`,
       'bar.js': `
 // This is a test file
-//# sourceMappingURL=foo.js.map`,
+//# sourceMappingURL=bar.js.map`,
       'bar.js.map': '// x',
       'foo.js.map': '// x'
     };
@@ -61,126 +66,212 @@ suite('updateSourceMapUrls', () => {
     vi.restoreAllMocks();
   });
 
-  test('skips on non-existent file', async () => {
-    const paths = [path.join(tempDir, 'non-existent.js')];
-    const result = await updateSourceMapUrls(tempDir, paths, pkg);
-
-    expect(result).toEqual({skipped: paths});
-  });
-
-  test('ignores files with no source maps', async () => {
-    const filePath = path.join(tempDir, 'no-sourcemap.js');
-    const contents = '// This is a test file';
-
-    files['no-sourcemap.js'] = contents;
-
-    await writeFiles(files, tempDir);
-
-    await updateSourceMapUrls(tempDir, [filePath], pkg);
-
-    const actualContents = await readFile(filePath, 'utf8');
-
-    expect(actualContents).toBe(contents);
-  });
-
-  test('ignores sourcemaps in weird places', async () => {
-    const filePath = path.join(tempDir, 'funky-sourcemaps.js');
-    const contents = `
-303;
-//# sourceMappingURL=funky-sourcemaps.js.map
-808;`;
-
-    files['funky-sourcemaps.js'] = contents;
-
-    await writeFiles(files, tempDir);
-
-    await updateSourceMapUrls(tempDir, [filePath], pkg);
-
-    const actualContents = await readFile(filePath, 'utf8');
-
-    expect(actualContents).toBe(contents);
-  });
-
-  test('ignores absolute URLs', async () => {
-    const filePath = path.join(tempDir, 'absolute-url.js');
-    const contents = `
-// This is a test file
-//# sourceMappingURL=/absolute/path/to/sourcemap.js.map`;
-
-    files['absolute-url.js'] = contents;
-
-    await writeFiles(files, tempDir);
-
-    await updateSourceMapUrls(tempDir, [filePath], pkg);
-
-    const actualContents = await readFile(filePath, 'utf8');
-
-    expect(actualContents).toBe(contents);
-  });
-
-  test('ignores URLs with a protocol', async () => {
-    const filePath = path.join(tempDir, 'protocol.js');
-    const contents = `
-// This is a test file
-//# sourceMappingURL=https://example.com/sourcemap.js.map`;
-
-    files['protocol.js'] = contents;
-
-    await writeFiles(files, tempDir);
-
-    await updateSourceMapUrls(tempDir, [filePath], pkg);
-
-    const actualContents = await readFile(filePath, 'utf8');
-
-    expect(actualContents).toBe(contents);
-  });
-
-  test('ignores inline sourcemaps', async () => {
-    const filePath = path.join(tempDir, 'inline.js');
-    const contents = `
-// This is a test file
-//# sourceMappingURL=data:application/json;base64,wooowooowooo`;
-
-    files['inline.js'] = contents;
-
-    await writeFiles(files, tempDir);
-
-    await updateSourceMapUrls(tempDir, [filePath], pkg);
-
-    const actualContents = await readFile(filePath, 'utf8');
-
-    expect(actualContents).toBe(contents);
-  });
-
-  test('skips on non-existent sourcemap', async () => {
-    files['non-existent-map.js'] = `
-// This is a test file
-//# sourceMappingURL=non-existent-map.js.map`;
-
-    await writeFiles(files, tempDir);
-
-    const paths = ['non-existent-map.js', 'foo.js'].map((file) =>
-      path.join(tempDir, file)
-    );
-    const result = await updateSourceMapUrls(tempDir, paths, pkg);
-
-    expect(result).toEqual({skipped: [paths[0]]});
-
-    const fooContents = await readFile(path.join(tempDir, 'foo.js'), 'utf8');
-
-    expect(fooContents).toMatchSnapshot();
-  });
-
   test('replaces urls with CDN urls', async () => {
-    const paths = [...Object.keys(files)].map((file) =>
-      path.join(tempDir, file)
-    );
-    await updateSourceMapUrls(tempDir, paths, pkg);
+    const sourceMaps: ExtractedSourceMapSuccess[] = [];
 
-    for (const p of paths) {
-      const contents = await readFile(p, 'utf8');
+    for (const [file, source] of Object.entries(files)) {
+      if (file.endsWith('.map')) {
+        continue;
+      }
+      const substr = 'sourceMappingURL=';
+      const rangeStart = source.indexOf(substr) + substr.length;
+      sourceMaps.push({
+        success: true,
+        path: path.join(tempDir, `${file}.map`),
+        source: path.join(tempDir, file),
+        range: [rangeStart, source.length]
+      });
+    }
+
+    await updateSourceMapUrls(tempDir, sourceMaps, pkg);
+
+    for (const sourceMap of sourceMaps) {
+      const contents = await readFile(sourceMap.source, 'utf8');
 
       expect(contents).toMatchSnapshot();
     }
+  });
+});
+
+suite('extractSourceMap', () => {
+  let tempDir: string;
+
+  beforeEach(async () => {
+    tempDir = await mkdtemp(path.join(tmpdir(), 'smpub'));
+  });
+
+  afterEach(async () => {
+    await rm(tempDir, {recursive: true, force: true});
+  });
+
+  test('errors when file does not exist', async () => {
+    const source = path.join(tempDir, 'non-existent.js');
+    const result = await extractSourceMap(source);
+
+    expect(result).toEqual({
+      source,
+      success: false,
+      reason: 'could not load source file'
+    });
+  });
+
+  test('errors when no sourcemap URL', async () => {
+    await writeFiles(
+      {
+        'foo.js': '// foo'
+      },
+      tempDir
+    );
+    const source = path.join(tempDir, 'foo.js');
+    const result = await extractSourceMap(source);
+
+    expect(result).toEqual({
+      source,
+      success: false,
+      reason: 'no sourcemap found'
+    });
+  });
+
+  test('errors when absolute sourcemap URL', async () => {
+    await writeFiles(
+      {
+        'foo.js': `// foo
+//# sourceMappingURL=/absolute/sourcemap.js.map`
+      },
+      tempDir
+    );
+    const source = path.join(tempDir, 'foo.js');
+    const result = await extractSourceMap(source);
+
+    expect(result).toEqual({
+      source,
+      success: false,
+      reason: 'absolute and external URLs not supported'
+    });
+  });
+
+  test('errors when external sourcemap URL', async () => {
+    await writeFiles(
+      {
+        'foo.js': `// foo
+//# sourceMappingURL=https://example.com/sourcemap.js.map`
+      },
+      tempDir
+    );
+    const source = path.join(tempDir, 'foo.js');
+    const result = await extractSourceMap(source);
+
+    expect(result).toEqual({
+      source,
+      success: false,
+      reason: 'absolute and external URLs not supported'
+    });
+  });
+
+  test('errors when data URL', async () => {
+    await writeFiles(
+      {
+        'foo.js': `// foo
+//# sourceMappingURL=data:application/json;base64,woowoo`
+      },
+      tempDir
+    );
+    const source = path.join(tempDir, 'foo.js');
+    const result = await extractSourceMap(source);
+
+    expect(result).toEqual({
+      source,
+      success: false,
+      reason: 'data URLs not supported'
+    });
+  });
+
+  test('errors when sourcemap does not exist', async () => {
+    await writeFiles(
+      {
+        'foo.js': `// foo
+//# sourceMappingURL=foo.js.map`
+      },
+      tempDir
+    );
+    const source = path.join(tempDir, 'foo.js');
+    const result = await extractSourceMap(source);
+
+    expect(result).toEqual({
+      source,
+      success: false,
+      reason: 'sourcemap not found'
+    });
+  });
+
+  test('ignores sourcemaps in weird places', async () => {
+    await writeFiles(
+      {
+        'foo.js': `// foo
+303;
+//# sourceMappingURL=funky-sourcemaps.js.map
+808;`
+      },
+      tempDir
+    );
+    const source = path.join(tempDir, 'foo.js');
+    const result = await extractSourceMap(source);
+
+    expect(result).toEqual({
+      source,
+      success: false,
+      reason: 'no sourcemap found'
+    });
+  });
+
+  test('retrieves sourcemap URL', async () => {
+    await writeFiles(
+      {
+        'foo.js': `// foo
+//# sourceMappingURL=foo.js.map`,
+        'foo.js.map': '// foo'
+      },
+      tempDir
+    );
+    const source = path.join(tempDir, 'foo.js');
+    const result = (await extractSourceMap(
+      source
+    )) as ExtractedSourceMapSuccess;
+
+    result.source = result.source.replace(tempDir, 'TEMP_DIR');
+    result.path = result.path.replace(tempDir, 'TEMP_DIR');
+    expect(result).toMatchSnapshot();
+  });
+});
+
+suite('extractSourceMaps', () => {
+  let tempDir: string;
+
+  beforeEach(async () => {
+    tempDir = await mkdtemp(path.join(tmpdir(), 'smpub'));
+  });
+
+  afterEach(async () => {
+    await rm(tempDir, {recursive: true, force: true});
+  });
+
+  test('extracts sourcemaps from files', async () => {
+    await writeFiles(
+      {
+        'foo.js': `// foo
+//# sourceMappingURL=foo.js.map`,
+        'foo.js.map': '// foo',
+        'bar.js': '// i have no sourcemap'
+      },
+      tempDir
+    );
+    const source = path.join(tempDir, 'foo.js');
+    const result = (await extractSourceMap(
+      source
+    )) as ExtractedSourceMapSuccess;
+
+    result.source = result.source.replace(tempDir, 'TEMP_DIR');
+    result.path = result.path.replace(tempDir, 'TEMP_DIR');
+    expect(result).toMatchSnapshot();
   });
 });
