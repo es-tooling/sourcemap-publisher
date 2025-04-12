@@ -31,7 +31,6 @@ const options = {
 } as const;
 
 export const publishCommand: Command<typeof options> = define({
-  name: 'publish',
   description: 'Publishes sourcemaps externally',
   options,
   async run(ctx) {
