@@ -51,7 +51,7 @@ export const publishCommand: Command<typeof options> = define({
       prompts.cancel(
         'Failed to read package.json. Please ensure you run this command in the project directory'
       );
-      return;
+      process.exit(1);
     }
 
     let paths: string[];
@@ -67,7 +67,7 @@ export const publishCommand: Command<typeof options> = define({
         'Failed to load files from `files` array in package.json.'
       );
       prompts.log.message(String(err));
-      return;
+      process.exit(1);
     }
 
     let tempDir: string | undefined;
@@ -82,7 +82,7 @@ export const publishCommand: Command<typeof options> = define({
 
       if (sourceMaps.length === 0) {
         prompts.cancel('No sourcemap files were found to publish!');
-        return;
+        process.exit(1);
       }
 
       const successfulSourceMaps: ExtractedSourceMapSuccess[] = [];
@@ -112,7 +112,7 @@ export const publishCommand: Command<typeof options> = define({
       } catch (err) {
         prompts.log.error(`${err}`);
         prompts.cancel('Failed to update package.json files');
-        return;
+        process.exit(1);
       }
 
       try {
@@ -133,7 +133,7 @@ export const publishCommand: Command<typeof options> = define({
       } catch (err) {
         prompts.log.error(`${err}`);
         prompts.cancel('Failed to update sourcemap URLs');
-        return;
+        process.exit(1);
       }
 
       const npmArgs: string[] = ['publish', '--tag=sourcemaps'];
@@ -172,7 +172,7 @@ export const publishCommand: Command<typeof options> = define({
         log.message(`${err}\n`, {raw: true});
         log.error(`Error running npm ${npmArgs.join(' ')}`);
         prompts.cancel('Failed to publish');
-        return;
+        process.exit(1);
       }
 
       prompts.outro(
