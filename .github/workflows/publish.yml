@@ -28,6 +28,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.npm_token }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -41,10 +43,6 @@ jobs:
           TAG_NAME: ${{ github.ref_name }}
       - run: npm publish --provenance --access public --tag next
         if: "github.event.release.prerelease"
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.npm_token }}
       - run: npm publish --provenance --access public
         if: "!github.event.release.prerelease"
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.npm_token }}
       - run: node ./cli.js --provenance
