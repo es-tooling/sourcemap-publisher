@@ -225,10 +225,11 @@ suite('extractSourceMap', () => {
   });
 
   test('retrieves sourcemap URL', async () => {
+    const contents = `// foo
+//# sourceMappingURL=foo.js.map`;
     await writeFiles(
       {
-        'foo.js': `// foo
-//# sourceMappingURL=foo.js.map`,
+        'foo.js': contents,
         'foo.js.map': '// foo'
       },
       tempDir
@@ -241,6 +242,7 @@ suite('extractSourceMap', () => {
     result.source = result.source.replace(tempDir, 'TEMP_DIR');
     result.path = result.path.replace(tempDir, 'TEMP_DIR');
     expect(result).toMatchSnapshot();
+    expect(contents.slice(result.range[0], result.range[1])).toBe('foo.js.map');
   });
 });
 

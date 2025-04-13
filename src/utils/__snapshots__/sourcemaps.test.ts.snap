@@ -4,8 +4,8 @@ exports[`extractSourceMap > retrieves sourcemap URL 1`] = `
 {
   "path": "TEMP_DIR/foo.js.map",
   "range": [
-    21,
-    31,
+    28,
+    38,
   ],
   "source": "TEMP_DIR/foo.js",
   "success": true,
@@ -16,8 +16,8 @@ exports[`extractSourceMaps > extracts sourcemaps from files 1`] = `
 {
   "path": "TEMP_DIR/foo.js.map",
   "range": [
-    21,
-    31,
+    28,
+    38,
   ],
   "source": "TEMP_DIR/foo.js",
   "success": true,
