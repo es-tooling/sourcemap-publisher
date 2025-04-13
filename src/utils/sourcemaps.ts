@@ -70,10 +70,8 @@ export async function extractSourceMap(
     return {source, success: false, reason: 'could not load source file'};
   }
 
-  const trimmedContents = contents.trim();
-  const lastLine = trimmedContents.slice(trimmedContents.lastIndexOf('\n') + 1);
-  const sourcemapPattern = /^\/\/# sourceMappingURL=(.+)/d;
-  const sourcemapMatch = lastLine.match(sourcemapPattern);
+  const sourcemapPattern = /\/\/# sourceMappingURL=(\S+)\s*$/d;
+  const sourcemapMatch = contents.match(sourcemapPattern);
 
   if (!sourcemapMatch || !sourcemapMatch.indices) {
     return {source, success: false, reason: 'no sourcemap found'};
