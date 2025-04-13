@@ -22,7 +22,8 @@
     "build": "npm run clean && tsc",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest --coverage"
+    "test:coverage": "vitest --coverage",
+    "prepublishOnly": "npm run build"
   },
   "repository": {
     "type": "git",
