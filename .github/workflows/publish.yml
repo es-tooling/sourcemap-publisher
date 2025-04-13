@@ -47,3 +47,4 @@ jobs:
         if: "!github.event.release.prerelease"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.npm_token }}
+      - run: node ./cli.js --provenance
