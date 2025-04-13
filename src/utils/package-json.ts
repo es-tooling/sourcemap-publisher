@@ -60,7 +60,9 @@ export async function preparePackageJson(
     files,
     main: './stub.js',
     version,
-    scripts: {}
+    scripts: {},
+    dependencies: {},
+    devDependencies: {}
   };
 
   for (const key of packageJsonKeysToStrip) {

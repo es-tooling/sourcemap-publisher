@@ -94,7 +94,13 @@ suite('preparePackageJson', () => {
       bin: {
         foo: './lib/cli.js'
       },
-      scripts: {}
+      scripts: {},
+      dependencies: {
+        foo: '1.0.0'
+      },
+      devDependencies: {
+        bar: '1.0.0'
+      }
     };
     tempDir = await mkdtemp(path.join(tmpdir(), 'smpub'));
     pkgPath = path.join(tempDir, 'package.json');
@@ -115,7 +121,9 @@ suite('preparePackageJson', () => {
       version: '1.0.0-sourcemaps',
       main: './stub.js',
       files: ['./stub.js', './**/*.map'],
-      scripts: {}
+      scripts: {},
+      dependencies: {},
+      devDependencies: {}
     });
   });
 
