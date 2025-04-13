@@ -47,13 +47,13 @@
     "globals": "^16.0.0",
     "premove": "^4.0.0",
     "prettier": "^3.5.3",
-    "tinyexec": "^1.0.1",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.29.1",
     "vitest": "^3.1.1"
   },
   "dependencies": {
     "gunshi": "^0.14.0",
-    "tinyglobby": "^0.2.12"
+    "tinyglobby": "^0.2.12",
+    "tinyexec": "^1.0.1"
   }
 }
