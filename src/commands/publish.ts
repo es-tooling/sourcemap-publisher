@@ -71,6 +71,7 @@ export const publishCommand: Command<typeof options> = define({
     }
 
     let tempDir: string | undefined;
+    let exitCode = 0;
 
     try {
       tempDir = await getTempDir(cwd, '.sourcemap-publish');
@@ -82,7 +83,8 @@ export const publishCommand: Command<typeof options> = define({
 
       if (sourceMaps.length === 0) {
         prompts.cancel('No sourcemap files were found to publish!');
-        process.exit(1);
+        exitCode = 1;
+        return;
       }
 
       const successfulSourceMaps: ExtractedSourceMapSuccess[] = [];
@@ -112,7 +114,8 @@ export const publishCommand: Command<typeof options> = define({
       } catch (err) {
         prompts.log.error(`${err}`);
         prompts.cancel('Failed to update package.json files');
-        process.exit(1);
+        exitCode = 1;
+        return;
       }
 
       try {
@@ -133,7 +136,8 @@ export const publishCommand: Command<typeof options> = define({
       } catch (err) {
         prompts.log.error(`${err}`);
         prompts.cancel('Failed to update sourcemap URLs');
-        process.exit(1);
+        exitCode = 1;
+        return;
       }
 
       const npmArgs: string[] = ['publish', '--tag=sourcemaps'];
@@ -172,7 +176,8 @@ export const publishCommand: Command<typeof options> = define({
         log.message(`${err}\n`, {raw: true});
         log.error(`Error running npm ${npmArgs.join(' ')}`);
         prompts.cancel('Failed to publish');
-        process.exit(1);
+        exitCode = 1;
+        return;
       }
 
       prompts.outro(
@@ -181,6 +186,9 @@ export const publishCommand: Command<typeof options> = define({
     } finally {
       if (tempDir) {
         await rm(tempDir, {force: true, recursive: true});
+      }
+      if (exitCode > 0) {
+        process.exit(exitCode);
       }
     }
   }
