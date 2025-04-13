@@ -51,7 +51,8 @@ export const publishCommand: Command<typeof options> = define({
       prompts.cancel(
         'Failed to read package.json. Please ensure you run this command in the project directory'
       );
-      process.exit(1);
+      process.exitCode = 1;
+      return;
     }
 
     let paths: string[];
@@ -67,11 +68,11 @@ export const publishCommand: Command<typeof options> = define({
         'Failed to load files from `files` array in package.json.'
       );
       prompts.log.message(String(err));
-      process.exit(1);
+      process.exitCode = 1;
+      return;
     }
 
     let tempDir: string | undefined;
-    let exitCode = 0;
 
     try {
       tempDir = await getTempDir(cwd, '.sourcemap-publish');
@@ -83,7 +84,7 @@ export const publishCommand: Command<typeof options> = define({
 
       if (sourceMaps.length === 0) {
         prompts.cancel('No sourcemap files were found to publish!');
-        exitCode = 1;
+        process.exitCode = 1;
         return;
       }
 
@@ -114,7 +115,7 @@ export const publishCommand: Command<typeof options> = define({
       } catch (err) {
         prompts.log.error(`${err}`);
         prompts.cancel('Failed to update package.json files');
-        exitCode = 1;
+        process.exitCode = 1;
         return;
       }
 
@@ -136,7 +137,7 @@ export const publishCommand: Command<typeof options> = define({
       } catch (err) {
         prompts.log.error(`${err}`);
         prompts.cancel('Failed to update sourcemap URLs');
-        exitCode = 1;
+        process.exitCode = 1;
         return;
       }
 
@@ -176,7 +177,7 @@ export const publishCommand: Command<typeof options> = define({
         log.message(`${err}\n`, {raw: true});
         log.error(`Error running npm ${npmArgs.join(' ')}`);
         prompts.cancel('Failed to publish');
-        exitCode = 1;
+        process.exitCode = 1;
         return;
       }
 
@@ -186,9 +187,6 @@ export const publishCommand: Command<typeof options> = define({
     } finally {
       if (tempDir) {
         await rm(tempDir, {force: true, recursive: true});
-      }
-      if (exitCode > 0) {
-        process.exit(exitCode);
       }
     }
   }
