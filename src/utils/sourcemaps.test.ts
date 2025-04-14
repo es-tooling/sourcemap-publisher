@@ -19,7 +19,7 @@ suite('createExternalSourcemapUrl', () => {
       files: []
     };
     expect(createExternalSourcemapUrl(file, pkg)).toBe(
-      'https://unpkg.com/test-package@1.0.0-sourcemaps/foo/bar.js.map'
+      'https://cdn.jsdelivr.net/npm/test-package@1.0.0-sourcemaps/foo/bar.js.map'
     );
   });
 });
