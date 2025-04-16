@@ -52,7 +52,7 @@
   },
   "dependencies": {
     "@clack/prompts": "https://pkg.pr.new/bombshell-dev/clack/@clack/prompts@276",
-    "gunshi": "^0.14.0",
+    "gunshi": "^0.14.4",
     "tinyglobby": "^0.2.12",
     "tinyexec": "^1.0.1"
   }
