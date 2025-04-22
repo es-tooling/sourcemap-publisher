@@ -41,7 +41,7 @@
   "devDependencies": {
     "@eslint/js": "^9.24.0",
     "@types/node": "^22.14.1",
-    "@vitest/coverage-v8": "^3.1.1",
+    "@vitest/coverage-v8": "^3.1.2",
     "eslint": "^9.25.1",
     "globals": "^16.0.0",
     "premove": "^4.0.0",
