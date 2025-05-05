@@ -39,7 +39,7 @@
   },
   "homepage": "https://github.com/es-tooling/sourcemap-publisher#readme",
   "devDependencies": {
-    "@eslint/js": "^9.24.0",
+    "@eslint/js": "^9.26.0",
     "@types/node": "^22.15.3",
     "@vitest/coverage-v8": "^3.1.2",
     "eslint": "^9.25.1",
