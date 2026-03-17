@@ -18,22 +18,26 @@ import {
 
 const filesToKeep = ['.npmrc', '.npmignore', 'package.json'];
 
-const options = {
-  provenance: {
-    type: 'boolean',
-    description: 'Enable provenance when publishing to npm',
-    default: false
-  },
-  'dry-run': {
-    type: 'boolean',
-    description: 'Dry run, do not publish',
-    default: false
+const commandInfo = {
+  args: {
+    provenance: {
+      type: 'boolean',
+      description: 'Enable provenance when publishing to npm',
+      default: false
+    },
+    'dry-run': {
+      type: 'boolean',
+      description: 'Dry run, do not publish',
+      default: false
+    }
   }
 } as const;
 
-export const publishCommand: Command<typeof options> = define({
+export const publishCommand: Command<typeof commandInfo> = define<
+  typeof commandInfo
+>({
   description: 'Publishes sourcemaps externally',
-  options,
+  args: commandInfo.args,
   async run(ctx) {
     prompts.intro('Publishing sourcemaps...');
 
